@@ -5,6 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 685222356746.dkr.ecr.us-east-1.amazonaws.com
+  AWS_ROLE_ARN: arn:aws:iam::685222356746:role/jfc-ecommerce-github-actions
+
 permissions:
   id-token: write
   contents: read
@@ -23,8 +28,8 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -35,19 +40,19 @@ jobs:
 
       - name: Build & push frontend
         run: |
-          docker build -t ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ steps.meta.outputs.tag }} frontend/
-          docker tag ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ steps.meta.outputs.tag }} \
-                     ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/frontend:latest
-          docker push ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ steps.meta.outputs.tag }}
-          docker push ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/frontend:latest
+          docker build -t ${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ steps.meta.outputs.tag }} frontend/
+          docker tag ${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ steps.meta.outputs.tag }} \
+                     ${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:latest
+          docker push ${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ steps.meta.outputs.tag }}
+          docker push ${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:latest
 
       - name: Build & push backend
         run: |
-          docker build -t ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ steps.meta.outputs.tag }} backend/
-          docker tag ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ steps.meta.outputs.tag }} \
-                     ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/backend:latest
-          docker push ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ steps.meta.outputs.tag }}
-          docker push ${{ vars.ECR_REGISTRY }}/jfc-ecommerce/backend:latest
+          docker build -t ${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ steps.meta.outputs.tag }} backend/
+          docker tag ${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ steps.meta.outputs.tag }} \
+                     ${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:latest
+          docker push ${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ steps.meta.outputs.tag }}
+          docker push ${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:latest
 
   deploy-dev:
     name: Deploy → dev
@@ -65,8 +70,8 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
@@ -74,12 +79,12 @@ jobs:
           version: 'v1.29.0'
 
       - name: Configure kubeconfig
-        run: aws eks update-kubeconfig --name jfc-ecommerce-dev --region ${{ vars.AWS_REGION }}
+        run: aws eks update-kubeconfig --name jfc-ecommerce-dev --region ${{ env.AWS_REGION }}
 
       - name: Update image tag in overlay
         run: |
           cd kubernetes/overlays/dev
-          kustomize edit set image traefik/whoami=${{ vars.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
+          kustomize edit set image traefik/whoami=${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
 
       - name: Deploy to dev
         run: kubectl apply -k kubernetes/overlays/dev/
@@ -109,8 +114,8 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
@@ -118,7 +123,7 @@ jobs:
           version: 'v1.29.0'
 
       - name: Configure kubeconfig
-        run: aws eks update-kubeconfig --name jfc-ecommerce-dev --region ${{ vars.AWS_REGION }}
+        run: aws eks update-kubeconfig --name jfc-ecommerce-dev --region ${{ env.AWS_REGION }}
 
       - name: Deploy to prod
         run: kubectl apply -k kubernetes/overlays/prod/
