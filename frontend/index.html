@@ -51,7 +51,7 @@
       el.style.display = 'block';
       el.textContent = 'Llamando a /api/health...';
       try {
-        const res = await fetch('http://k8s-jfcecommerce-bf8600fdc9-696265817.us-east-1.elb.amazonaws.com/api/health');
+        const res = await fetch('/api/health');
         const data = await res.json();
         el.textContent = JSON.stringify(data, null, 2);
       } catch(e) {
