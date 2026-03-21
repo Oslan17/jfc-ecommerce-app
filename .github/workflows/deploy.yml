@@ -9,6 +9,10 @@ env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: 685222356746.dkr.ecr.us-east-1.amazonaws.com
   AWS_ROLE_ARN: arn:aws:iam::685222356746:role/jfc-ecommerce-github-actions
+  S3_BUCKET_DEV: jfc-ecommerce-dev-frontend-685222356746
+  S3_BUCKET_PROD: jfc-ecommerce-prod-frontend-685222356746
+  CLOUDFRONT_ID_DEV: E1L6J1897NZ4XW
+  CLOUDFRONT_ID_PROD: E1QS0ZY5U3AM4A
 
 permissions:
   id-token: write
@@ -61,11 +65,17 @@ jobs:
     environment: dev
 
     steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+        with:
+          path: app
+
       - name: Checkout infra repo
         uses: actions/checkout@v4
         with:
           repository: Oslan17/jfc-ecommerce-aws-infra
           token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: infra
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -83,17 +93,22 @@ jobs:
 
       - name: Update image tags in overlay
         run: |
-          cd kubernetes/overlays/dev
+          cd infra/kubernetes/overlays/dev
           kustomize edit set image jfc-ecommerce/frontend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
           kustomize edit set image jfc-ecommerce/backend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ needs.build.outputs.image_tag }}
 
       - name: Deploy to dev
-        run: kubectl apply -k kubernetes/overlays/dev/
+        run: kubectl apply -k infra/kubernetes/overlays/dev/
 
       - name: Verify rollout
         run: |
           kubectl rollout status deployment/jfc-frontend -n dev --timeout=300s
           kubectl rollout status deployment/jfc-backend  -n dev --timeout=300s
+
+      - name: Upload frontend to S3 dev + invalidate CloudFront
+        run: |
+          aws s3 cp app/frontend/index.html s3://${{ env.S3_BUCKET_DEV }}/index.html --content-type text/html
+          aws cloudfront create-invalidation --distribution-id ${{ env.CLOUDFRONT_ID_DEV }} --paths "/*"
 
       - name: Show status
         if: always()
@@ -106,11 +121,17 @@ jobs:
     environment: prod        # ← pausa aquí hasta que apruebes en GitHub
 
     steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+        with:
+          path: app
+
       - name: Checkout infra repo
         uses: actions/checkout@v4
         with:
           repository: Oslan17/jfc-ecommerce-aws-infra
           token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: infra
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -128,17 +149,22 @@ jobs:
 
       - name: Update image tags in overlay
         run: |
-          cd kubernetes/overlays/prod
+          cd infra/kubernetes/overlays/prod
           kustomize edit set image jfc-ecommerce/frontend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
           kustomize edit set image jfc-ecommerce/backend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ needs.build.outputs.image_tag }}
 
       - name: Deploy to prod
-        run: kubectl apply -k kubernetes/overlays/prod/
+        run: kubectl apply -k infra/kubernetes/overlays/prod/
 
       - name: Verify rollout
         run: |
           kubectl rollout status deployment/jfc-frontend -n prod --timeout=300s
           kubectl rollout status deployment/jfc-backend  -n prod --timeout=300s
+
+      - name: Upload frontend to S3 prod + invalidate CloudFront
+        run: |
+          aws s3 cp app/frontend/index.html s3://${{ env.S3_BUCKET_PROD }}/index.html --content-type text/html
+          aws cloudfront create-invalidation --distribution-id ${{ env.CLOUDFRONT_ID_PROD }} --paths "/*"
 
       - name: Show status
         if: always()
