@@ -81,10 +81,11 @@ jobs:
       - name: Configure kubeconfig
         run: aws eks update-kubeconfig --name jfc-ecommerce-dev --region ${{ env.AWS_REGION }}
 
-      - name: Update image tag in overlay
+      - name: Update image tags in overlay
         run: |
           cd kubernetes/overlays/dev
-          kustomize edit set image traefik/whoami=${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
+          kustomize edit set image jfc-ecommerce/frontend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
+          kustomize edit set image jfc-ecommerce/backend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ needs.build.outputs.image_tag }}
 
       - name: Deploy to dev
         run: kubectl apply -k kubernetes/overlays/dev/
@@ -101,7 +102,7 @@ jobs:
   deploy-prod:
     name: Deploy → prod
     runs-on: ubuntu-latest
-    needs: deploy-dev
+    needs: [build, deploy-dev]
     environment: prod        # ← pausa aquí hasta que apruebes en GitHub
 
     steps:
@@ -124,6 +125,12 @@ jobs:
 
       - name: Configure kubeconfig
         run: aws eks update-kubeconfig --name jfc-ecommerce-dev --region ${{ env.AWS_REGION }}
+
+      - name: Update image tags in overlay
+        run: |
+          cd kubernetes/overlays/prod
+          kustomize edit set image jfc-ecommerce/frontend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/frontend:${{ needs.build.outputs.image_tag }}
+          kustomize edit set image jfc-ecommerce/backend=${{ env.ECR_REGISTRY }}/jfc-ecommerce/backend:${{ needs.build.outputs.image_tag }}
 
       - name: Deploy to prod
         run: kubectl apply -k kubernetes/overlays/prod/
