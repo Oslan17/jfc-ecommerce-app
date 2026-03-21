@@ -1,0 +1,9 @@
+{
+  "name": "jfc-backend",
+  "version": "1.0.0",
+  "description": "JFC E-Commerce backend API",
+  "main": "app.js",
+  "dependencies": {
+    "prom-client": "^15.1.0"
+  }
+}
